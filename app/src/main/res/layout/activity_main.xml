@@ -36,6 +36,11 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:text="下载至本地"/>
+    <TextView
+        android:id="@+id/tv_reload"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="跳转至下个页面"/>
     <ProgressBar
         android:id="@+id/progress"
         style="@style/Widget.AppCompat.ProgressBar.Horizontal"

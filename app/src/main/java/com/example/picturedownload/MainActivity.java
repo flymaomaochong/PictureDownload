@@ -1,43 +1,30 @@
 package com.example.picturedownload;
 
 import android.content.ContentValues;
+import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.StaggeredGridLayoutManager;
 import android.util.Log;
-import android.util.TimeUtils;
 import android.view.View;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.picturedownload.data.MyHelper;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -64,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private AtomicInteger count = new AtomicInteger(0);;
     private ProgressBar progress;
     private MyRecyclerAdapter myadapter;
+    private TextView tv_reload;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,10 +64,16 @@ public class MainActivity extends AppCompatActivity {
         tv_url = (TextView) findViewById(R.id.tv_url);
         tv_regx = (TextView) findViewById(R.id.tv_regx);
         progress =(ProgressBar)findViewById(R.id.progress);
+        tv_reload =(TextView)findViewById(R.id.tv_reload);
         progress.setVisibility(View.GONE);
         recyclerview = (RecyclerView) findViewById(R.id.recyclerview);
         tv_regx.setText("正则表达式：" + regx);
-
+        tv_reload.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startActivity(new Intent(MainActivity.this,SecondActivity.class));
+            }
+        });
 
 //        Glide.with(MainActivity.this).load("http://img11.tu11.com:8080/uploads/allimg/c180829/15354P059593P-195Q8_lit.jpg").into(iv_image);
         getData();
@@ -140,13 +134,12 @@ public class MainActivity extends AppCompatActivity {
                 Request request = new Request.Builder().url(url).build();
                 try (Response response = okHttpClient.newCall(request).execute()) {
                     String result = response.body().string();
-
                     Pattern pattern = Pattern.compile(regx);
                     Matcher matcher = pattern.matcher(result);
                     while (matcher.find()) {
                         String name = matcher.group(1);
                         Log.i("这里是最终", name);
-                        String local_name=System.currentTimeMillis() + ".png";
+                        String local_name=parse2md5(name)+".png";
                         datas.add(new DataBean(name, local_name));
                         localname.add(local_name);
                         if(names.containsKey(local_name)){
@@ -296,5 +289,36 @@ public class MainActivity extends AppCompatActivity {
         }).start();
 
         Toast.makeText(MainActivity.this, "下载完成,数量"+count.get(), Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 将图片的网址转换成MD5格式，这样就不会命名重复，而且还会符合文件命名规范，
+     * 因为直接将网址作为名称含有分号等特殊字符，不符合命名规范
+     * @param origin 图片或文件的网络地址
+     * */
+    private String parse2md5(String origin){
+        MessageDigest md5 = null;
+        try {
+            md5 = MessageDigest.getInstance("MD5");
+        } catch (Exception e) {
+            System.out.println(e.toString());
+            e.printStackTrace();
+            return "";
+        }
+        char[] charArray = origin.toCharArray();
+        byte[] byteArray = new byte[charArray.length];
+
+        for (int i = 0; i < charArray.length; i++)
+            byteArray[i] = (byte) charArray[i];
+        byte[] md5Bytes = md5.digest(byteArray);
+        StringBuffer hexValue = new StringBuffer();
+        for (int i = 0; i < md5Bytes.length; i++) {
+            int val = ((int) md5Bytes[i]) & 0xff;
+            if (val < 16)
+                hexValue.append("0");
+            hexValue.append(Integer.toHexString(val));
+        }
+        return hexValue.toString();
+
     }
 }
