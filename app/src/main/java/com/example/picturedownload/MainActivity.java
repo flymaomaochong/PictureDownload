@@ -1,19 +1,44 @@
 package com.example.picturedownload;
 
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.StaggeredGridLayoutManager;
 import android.util.Log;
+import android.util.TimeUtils;
+import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.example.picturedownload.data.MyHelper;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,34 +47,88 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
-    private String regx = "<img.*?src=\"(.*?)\"";
-    //    private String regx = "<img class=\"main_img img-hover\".*?src=\"https:(.*?)\"";
-    private String url = "http://www.tu11.com/shoujibizhi/";
-    //    private String url = "https://image.baidu.com/search/index?tn=baiduimage&ct=201326592&lm=-1&cl=2&ie=gb18030&word=%CD%BC%BF%E2%B4%F3%C8%AB&fr=ala&ala=1&alatpl=adress&pos=0&hs=2&xthttps=111111";
+    private String regx = "<img.*?data-original=\"(http.*?)\"";
+    private String url = "http://699pic.com/?sem=1&sem_kid=46079&sem_type=1&b_scene_zt=1";
+    private final String PATH_DIR = Environment.getExternalStorageDirectory() + File.separator + "imgs";
     private TextView tv_url;
     private TextView tv_regx;
     private RecyclerView recyclerview;
     private List<DataBean> datas = new ArrayList<>();
-    private ImageView iv_image;
+    private Set<String>localname=new HashSet<>();
+    private HashMap<String,Integer>names=new HashMap<>();
+    private TextView tv_create;
+    private SQLiteDatabase sqLiteDatabase;
+    private TextView tv_add;
+    private TextView tv_delete;
+    private TextView tv_download;
+    private AtomicInteger count = new AtomicInteger(0);;
+    private ProgressBar progress;
+    private MyRecyclerAdapter myadapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        iv_image = (ImageView) findViewById(R.id.iv_image);
+        tv_download = (TextView) findViewById(R.id.tv_download);
+        tv_create = (TextView) findViewById(R.id.tv_create);
+        tv_delete = (TextView) findViewById(R.id.tv_delete);
+        tv_add = (TextView) findViewById(R.id.tv_add);
         tv_url = (TextView) findViewById(R.id.tv_url);
         tv_regx = (TextView) findViewById(R.id.tv_regx);
+        progress =(ProgressBar)findViewById(R.id.progress);
+        progress.setVisibility(View.GONE);
         recyclerview = (RecyclerView) findViewById(R.id.recyclerview);
         tv_regx.setText("正则表达式：" + regx);
 
 
 //        Glide.with(MainActivity.this).load("http://img11.tu11.com:8080/uploads/allimg/c180829/15354P059593P-195Q8_lit.jpg").into(iv_image);
         getData();
+        tv_download.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                download(datas);
+            }
+        });
+        tv_delete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                sqLiteDatabase.execSQL("delete from picInfo");
+            }
+        });
+        tv_add.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                ContentValues contentValues = new ContentValues();
+                sqLiteDatabase.execSQL("delete from picInfo");
+                for (DataBean itemData : datas) {
+                    contentValues.put("neturl", itemData.getNetUrl());
+                    contentValues.put("localurl", itemData.getLocalUrl());
+                    sqLiteDatabase.insert("picInfo", null, contentValues);
+                }
+            }
+        });
+        tv_create.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                MyHelper myHelper = new MyHelper(MainActivity.this, 1);
+                sqLiteDatabase = myHelper.getWritableDatabase();
+            }
+        });
+//        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
+//        linearLayoutManager.setOrientation(LinearLayout.VERTICAL);
+//        recyclerview.setLayoutManager(linearLayoutManager);
 
-        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
-        linearLayoutManager.setOrientation(LinearLayout.VERTICAL);
-        recyclerview.setLayoutManager(linearLayoutManager);
 
+        GridLayoutManager gridLayoutManager = new GridLayoutManager(MainActivity.this, 3);
+        recyclerview.setLayoutManager(gridLayoutManager);
+        myadapter = new MyRecyclerAdapter(MainActivity.this, datas);
+        recyclerview.setAdapter(myadapter);
+        myadapter.click(new MyRecyclerAdapter.ItemClick() {
+            @Override
+            public void onItemClick(int positon) {
+                download(datas.get(positon));
+            }
+        });
     }
 
 
@@ -57,23 +136,6 @@ public class MainActivity extends AppCompatActivity {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                OkHttpClient okHttpClient1 = new OkHttpClient();
-                Request request1=new Request.Builder().url("http://img11.tu11.com:8080/uploads/allimg/c180829/15354P059593P-195Q8_lit.jpg").build();
-//                Request request1 = new Request.Builder().url("https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1570444002069&di=2d23b9c92b02ffc7b073a77f2b347412&imgtype=0&src=http%3A%2F%2Fpic.16pic.com%2F00%2F23%2F97%2F16pic_2397078_b.jpg").build();
-                try (Response response1 = okHttpClient1.newCall(request1).execute()) {
-                    final Bitmap bitmap = BitmapFactory.decodeStream(response1.body().byteStream());
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            iv_image.setImageBitmap(bitmap);
-                        }
-                    });
-
-                } catch (Exception ex) {
-                    Log.i("这里是错误", ex.toString());
-                }
-
-
                 OkHttpClient okHttpClient = new OkHttpClient();
                 Request request = new Request.Builder().url(url).build();
                 try (Response response = okHttpClient.newCall(request).execute()) {
@@ -84,13 +146,28 @@ public class MainActivity extends AppCompatActivity {
                     while (matcher.find()) {
                         String name = matcher.group(1);
                         Log.i("这里是最终", name);
-                        datas.add(new DataBean(name));
+                        String local_name=System.currentTimeMillis() + ".png";
+                        datas.add(new DataBean(name, local_name));
+                        localname.add(local_name);
+                        if(names.containsKey(local_name)){
+                            names.put(local_name,names.get(local_name)+1);
+                        }else {
+                            names.put(local_name,1);
+                        }
+
 //                        download(name);
                     }
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            recyclerview.setAdapter(new MyRecyclerAdapter(MainActivity.this, datas));
+                            int count=0;
+                           for (Integer item:names.values()){
+                               count+=item;
+                               Log.i("图片的下载数量",item+"");
+                           }
+                            Log.i("图片的下载数量合计",count+"？？"+datas.size());
+                            Toast.makeText(MainActivity.this, localname.size()+"条",Toast.LENGTH_SHORT).show();
+                           myadapter.notifyDataSetChanged();
                         }
                     });
 
@@ -101,32 +178,123 @@ public class MainActivity extends AppCompatActivity {
         }).start();
 
     }
+/**
+ * 多文件
+ * */
+    private void download(final List<DataBean> datas) {
+        Log.i("这里是图片下载数量",datas.size()+"");
+        progress.setVisibility(View.VISIBLE);
+        progress.setMax(datas.size());
+        File dir = new File(PATH_DIR);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        //创建基本线程池
 
-    private void download(final String name) {
+//        final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(3, 5, 1, TimeUnit.SECONDS,
+//                new LinkedBlockingQueue<Runnable>(10));
+        final OkHttpClient okHttpClient = new OkHttpClient();
 
-        Log.i("这里是123", name);
         new Thread(new Runnable() {
             @Override
             public void run() {
-                OkHttpClient okHttpClient = new OkHttpClient();
-                Request request = new Request.Builder().url(name).build();
-                try (Response response = okHttpClient.newCall(request).execute()) {
-                    InputStream inputStream = response.body().byteStream();
-                    final Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-                    final ImageView imageView = new ImageView(getApplicationContext(), null, 100, 100);
-                    imageView.setImageBitmap(bitmap);
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
+                InputStream inputStream=null;
+                FileOutputStream fileOutputStream=null;
+                for (int i=0;i<datas.size();i++) {
+                    final DataBean item=datas.get(i);
+                            Log.i("这里是图片下载下标",count.incrementAndGet()+"");
+                            Request request = new Request.Builder().url(item.getNetUrl()).build();
+                            try (Response response = okHttpClient.newCall(request).execute()) {
+                                 inputStream = response.body().byteStream();
+                                File file = new File(PATH_DIR, item.getLocalUrl());
+                                if (file.exists()) {
+                                    file.delete();
+                                }
+                                file.createNewFile();
+                                 fileOutputStream = new FileOutputStream(file);
+                                int len = 0;
+                                while ((len = inputStream.read()) != -1) {
+                                    fileOutputStream.write(len);
+                                }
+                                fileOutputStream.close();
+                                inputStream.close();
+                            } catch (Exception ex) {
+                                Log.i("这里是", ex.toString());
+                            }finally {
 
+                                progress.setProgress(0);
+                            }
+                    progress.setProgress(i);
                         }
-                    });
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        progress.setVisibility(View.GONE);
+                    }
+                });
+                    };
+                }).start();
 
-                } catch (Exception ex) {
-                    Log.i("这里是", ex.toString());
-                }
-            }
+        Toast.makeText(MainActivity.this, "下载完成,数量"+count.get(), Toast.LENGTH_SHORT).show();
+    }
+    /**
+     * 单个文件
+     * */
+    private void download(final DataBean dataBean) {
+        progress.setVisibility(View.VISIBLE);
+        progress.setMax(100);
+        File dir = new File(PATH_DIR);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+        //创建基本线程池
+
+//        final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(3, 5, 1, TimeUnit.SECONDS,
+//                new LinkedBlockingQueue<Runnable>(10));
+        final OkHttpClient okHttpClient = new OkHttpClient();
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                InputStream inputStream=null;
+                FileOutputStream fileOutputStream=null;
+//                for (int i=0;i<datas.size();i++) {
+//                    final DataBean item=datas.get(i);
+                    Log.i("这里是图片下载下标",count.incrementAndGet()+"");
+                    Request request = new Request.Builder().url(dataBean.getNetUrl()).build();
+                    try (Response response = okHttpClient.newCall(request).execute()) {
+                        inputStream = response.body().byteStream();
+                        File file = new File(PATH_DIR, dataBean.getLocalUrl());
+//                        if (file.exists()) {
+//                            file.delete();
+//                        }
+                        if (!file.exists()) {
+                            file.createNewFile();
+                        }
+                        fileOutputStream = new FileOutputStream(file);
+                        int len = 0;
+                        while ((len = inputStream.read()) != -1) {
+                            fileOutputStream.write(len);
+                        }
+                        fileOutputStream.close();
+                        inputStream.close();
+                    } catch (Exception ex) {
+                        Log.i("这里是", ex.toString());
+                    }finally {
+
+                        progress.setProgress(0);
+                    }
+                    progress.setProgress(100);
+//                }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        progress.setVisibility(View.GONE);
+                    }
+                });
+            };
         }).start();
 
+        Toast.makeText(MainActivity.this, "下载完成,数量"+count.get(), Toast.LENGTH_SHORT).show();
     }
 }

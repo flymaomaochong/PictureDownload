@@ -20,10 +20,15 @@ import java.util.List;
 public class MyRecyclerAdapter extends RecyclerView.Adapter<MyRecyclerAdapter.MyViewHolder> {
     private List<DataBean> datas;
     private Context context;
+    private ItemClick mItemClick;
 
     public MyRecyclerAdapter(Context context, List<DataBean> datas) {
         this.context = context;
         this.datas = datas;
+    }
+
+    public void click(ItemClick mItemClick) {
+        this.mItemClick = mItemClick;
     }
 
     @NonNull
@@ -35,29 +40,36 @@ public class MyRecyclerAdapter extends RecyclerView.Adapter<MyRecyclerAdapter.My
     }
 
     @Override
-    public void onBindViewHolder(@NonNull MyViewHolder myViewHolder, int i) {
-        Log.i("这里是图片的地址显示", datas.get(i).getUrl());
-//        Glide.with(context).load(datas.get(i).getUrl()).placeholder(R.mipmap.ic_launcher_round).error(R.mipmap.ic_launcher).into(myViewHolder.image);
-        myViewHolder.tv_title.setText("这是第"+i+"个");
-//        Glide.with(context).load("https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1570444002069&di=2d23b9c92b02ffc7b073a77f2b347412&imgtype=0&src=http%3A%2F%2Fpic.16pic.com%2F00%2F23%2F97%2F16pic_2397078_b.jpg").into(myViewHolder.image);
-//        Glide.with(context).load("http://img11.tu11.com:8080/uploads/allimg/c180829/15354P059593P-195Q8_lit.jpg").into(myViewHolder.image);
-
-        Glide.with(context).load("http://img11.tu11.com:8080/uploads/allimg/c180829/15354P059593P-195Q8_lit.jpg").into(myViewHolder.image);
+    public void onBindViewHolder(@NonNull MyViewHolder myViewHolder, final int i) {
+        Glide.with(context).load(datas.get(i).getNetUrl()).into(myViewHolder.image);
+        myViewHolder.tv_title.setText("这是第" + i + "个");
+        myViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mItemClick != null) {
+                    mItemClick.onItemClick(i);
+                }
+            }
+        });
 
     }
 
     @Override
     public int getItemCount() {
-//        return datas.size();
-        return 3;
+        return datas.size();
     }
 
-    public class MyViewHolder extends RecyclerView.ViewHolder {
+    public interface ItemClick {
+        void onItemClick(int positon);
+    }
+
+    public static class MyViewHolder extends RecyclerView.ViewHolder {
         public ImageView image;
         public TextView tv_title;
-
+        public View itemView;
         public MyViewHolder(@NonNull View itemView) {
             super(itemView);
+            this.itemView = itemView;
             image = (ImageView) itemView.findViewById(R.id.image);
             tv_title = (TextView) itemView.findViewById(R.id.tv_title);
         }

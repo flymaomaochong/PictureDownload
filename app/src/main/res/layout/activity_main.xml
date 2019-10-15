@@ -3,10 +3,7 @@
               android:layout_height="match_parent"
               android:orientation="vertical"
               xmlns:android="http://schemas.android.com/apk/res/android">
-    <ImageView
-        android:id="@+id/iv_image"
-        android:layout_width="200dp"
-        android:layout_height="200dp"/>
+
     <TextView
         android:id="@+id/tv_url"
         android:layout_width="match_parent"
@@ -19,9 +16,33 @@
         android:layout_height="50dp"
         android:gravity="center_vertical"
         android:text="正则表达式"/>
+    <TextView
+        android:id="@+id/tv_create"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="创建数据库"/>
+    <TextView
+        android:id="@+id/tv_delete"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="删除数据"/>
+    <TextView
+        android:id="@+id/tv_add"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="一键保存所有文件"/>
+    <TextView
+        android:id="@+id/tv_download"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="下载至本地"/>
+    <ProgressBar
+        android:id="@+id/progress"
+        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
    <android.support.v7.widget.RecyclerView
        android:id="@+id/recyclerview"
        android:layout_width="match_parent"
-       android:layout_height="match_parent"
-       android:background="@color/colorAccent"></android.support.v7.widget.RecyclerView>
+       android:layout_height="match_parent"></android.support.v7.widget.RecyclerView>
 </LinearLayout>
