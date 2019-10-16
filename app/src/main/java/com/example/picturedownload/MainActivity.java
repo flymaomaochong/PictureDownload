@@ -74,8 +74,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(MainActivity.this,SecondActivity.class));
             }
         });
-
-//        Glide.with(MainActivity.this).load("http://img11.tu11.com:8080/uploads/allimg/c180829/15354P059593P-195Q8_lit.jpg").into(iv_image);
         getData();
         tv_download.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -108,11 +106,6 @@ public class MainActivity extends AppCompatActivity {
                 sqLiteDatabase = myHelper.getWritableDatabase();
             }
         });
-//        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
-//        linearLayoutManager.setOrientation(LinearLayout.VERTICAL);
-//        recyclerview.setLayoutManager(linearLayoutManager);
-
-
         GridLayoutManager gridLayoutManager = new GridLayoutManager(MainActivity.this, 3);
         recyclerview.setLayoutManager(gridLayoutManager);
         myadapter = new MyRecyclerAdapter(MainActivity.this, datas);
@@ -138,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
                     Matcher matcher = pattern.matcher(result);
                     while (matcher.find()) {
                         String name = matcher.group(1);
-                        Log.i("这里是最终", name);
                         String local_name=parse2md5(name)+".png";
                         datas.add(new DataBean(name, local_name));
                         localname.add(local_name);
@@ -156,9 +148,7 @@ public class MainActivity extends AppCompatActivity {
                             int count=0;
                            for (Integer item:names.values()){
                                count+=item;
-                               Log.i("图片的下载数量",item+"");
                            }
-                            Log.i("图片的下载数量合计",count+"？？"+datas.size());
                             Toast.makeText(MainActivity.this, localname.size()+"条",Toast.LENGTH_SHORT).show();
                            myadapter.notifyDataSetChanged();
                         }
